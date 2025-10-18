@@ -3,8 +3,8 @@
 # Run `pod lib lint wifi_info_plus.podspec` to validate before publishing.
 #
 Pod::Spec.new do |s|
-  s.name             = 'wifi_info_plus'
-  s.version          = '1.0.0'
+  s.name             = 'wifi_info_enhanced'
+  s.version          = '1.0.1'
   s.summary          = 'Flutter plugin for getting WiFi information with improved iOS support'
   s.description      = <<-DESC
 Flutter plugin for getting WiFi information with improved iOS support

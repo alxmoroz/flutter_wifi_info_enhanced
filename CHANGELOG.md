@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-01-18
+
+### Fixed
+- Fixed podspec filename mismatch: renamed `wifi_info_plus.podspec` to `wifi_info_enhanced.podspec`
+- Updated podspec name from `wifi_info_plus` to `wifi_info_enhanced` to match package name
+- Resolved CocoaPods "No podspec found" error in iOS projects
+
 ## [1.0.0] - 2025-10-16
 
 ### Added
