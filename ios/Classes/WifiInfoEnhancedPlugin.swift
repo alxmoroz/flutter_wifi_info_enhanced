@@ -3,13 +3,13 @@ import UIKit
 import SystemConfiguration.CaptiveNetwork
 import CoreLocation
 
-public class WifiInfoPlusPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate {
+public class WifiInfoEnhancedPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate {
     private var locationManager: CLLocationManager?
     private var result: FlutterResult?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
-        let channel = FlutterMethodChannel(name: "wifi_info_plus", binaryMessenger: registrar.messenger())
-        let instance = WifiInfoPlusPlugin()
+        let channel = FlutterMethodChannel(name: "wifi_info_enhanced", binaryMessenger: registrar.messenger())
+        let instance = WifiInfoEnhancedPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
     
@@ -29,36 +29,26 @@ public class WifiInfoPlusPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
     private func getWifiName(result: @escaping FlutterResult) {
         self.result = result
         
-        print("WifiInfoPlus: getWifiName called")
-        
-        // Проверяем разрешения на геолокацию
+        // Check location permissions
         if CLLocationManager.locationServicesEnabled() {
             let status = CLLocationManager.authorizationStatus()
-            print("WifiInfoPlus: Location status = \(status.rawValue)")
-            
             switch status {
             case .authorizedWhenInUse:
-                // Разрешения есть, получаем SSID
-                print("WifiInfoPlus: Authorized when in use, getting SSID")
+                // Permissions granted, getting SSID
                 getCurrentWifiSSID()
             case .authorizedAlways:
-                // Разрешения есть, получаем SSID
-                print("WifiInfoPlus: Authorized always, getting SSID")
+                // Permissions granted, getting SSID
                 getCurrentWifiSSID()
             case .denied, .restricted:
-                // Разрешения отклонены
-                print("WifiInfoPlus: Location permission denied or restricted")
+                // Permissions denied
                 result(nil)
             case .notDetermined:
-                // Запрашиваем разрешения только на время использования
-                print("WifiInfoPlus: Requesting location permission")
+                // Request permissions for app usage only
                 requestLocationPermission()
             @unknown default:
-                print("WifiInfoPlus: Unknown location status")
                 result(nil)
             }
         } else {
-            print("WifiInfoPlus: Location services not enabled")
             result(nil)
         }
     }
@@ -94,11 +84,11 @@ public class WifiInfoPlusPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
         for ifptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
             let interface = ifptr.pointee
             
-            // Проверяем IPv4 интерфейс
+            // Check IPv4 interface
             let addrFamily = interface.ifa_addr.pointee.sa_family
             if addrFamily == UInt8(AF_INET) {
                 let name = String(cString: interface.ifa_name)
-                if name == "en0" { // Wi-Fi интерфейс
+                if name == "en0" { // Wi-Fi interface
                     var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
                     getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
                               &hostname, socklen_t(hostname.count),
@@ -115,34 +105,24 @@ public class WifiInfoPlusPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
     private func requestLocationPermission() {
         locationManager = CLLocationManager()
         locationManager?.delegate = self
-        // Запрашиваем разрешение только на время использования приложения
+        // Request permission for app usage only
         locationManager?.requestWhenInUseAuthorization()
     }
     
     private func getCurrentWifiSSID() {
-        print("WifiInfoPlus: getCurrentWifiSSID called")
-        
         guard let interfaces = CNCopySupportedInterfaces() as? [String] else {
-            print("WifiInfoPlus: CNCopySupportedInterfaces returned nil")
             result?(nil)
             return
         }
         
-        print("WifiInfoPlus: Found \(interfaces.count) interfaces")
-        
         for interface in interfaces {
-            print("WifiInfoPlus: Checking interface: \(interface)")
             if let info = CNCopyCurrentNetworkInfo(interface as CFString) as? [String: Any] {
                 let ssid = info["SSID"] as? String
-                print("WifiInfoPlus: Found SSID: \(ssid ?? "nil")")
                 result?(ssid)
                 return
-            } else {
-                print("WifiInfoPlus: CNCopyCurrentNetworkInfo returned nil for interface \(interface)")
             }
         }
         
-        print("WifiInfoPlus: No SSID found")
         result?(nil)
     }
     
@@ -168,10 +148,10 @@ public class WifiInfoPlusPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
     public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         switch status {
         case .authorizedWhenInUse:
-            // Разрешения получены, получаем информацию о Wi-Fi
+            // Permissions granted, getting WiFi information
             getCurrentWifiSSID()
         case .authorizedAlways:
-            // Разрешения получены, получаем информацию о Wi-Fi
+            // Permissions granted, getting WiFi information
             getCurrentWifiSSID()
         case .denied, .restricted:
             result?(nil)

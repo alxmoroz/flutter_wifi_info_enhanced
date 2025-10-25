@@ -4,12 +4,12 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'wifi_info_enhanced'
-  s.version          = '1.0.1'
+  s.version          = '1.1.0'
   s.summary          = 'Flutter plugin for getting WiFi information with improved iOS support'
   s.description      = <<-DESC
 Flutter plugin for getting WiFi information with improved iOS support
                        DESC
-  s.homepage         = 'https://github.com/alxmoroz/wifi_info_plus_flutter'
+  s.homepage         = 'https://github.com/alxmoroz/flutter_wifi_info_enhanced'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Alexandr Moroz' => 'alexandrmoroz@gmail.com' }
   s.source           = { :path => '.' }
