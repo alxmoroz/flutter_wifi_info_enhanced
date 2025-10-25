@@ -15,71 +15,76 @@ public class WifiInfoEnhancedPlugin: NSObject, FlutterPlugin, CLLocationManagerD
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
-        case "getWifiName":
-            getWifiName(result: result)
-        case "getWifiBSSID":
-            getWifiBSSID(result: result)
-        case "getWifiIPAddress":
-            getWifiIPAddress(result: result)
+        case "getWifiInfo":
+            getWifiInfo(result: result)
         default:
             result(FlutterMethodNotImplemented)
         }
     }
     
-    private func getWifiName(result: @escaping FlutterResult) {
+    private func getWifiInfo(result: @escaping FlutterResult) {
         self.result = result
+        
+        // Check if WiFi is connected
+        guard let interfaces = CNCopySupportedInterfaces() as? [String] else {
+            let ipAddress = getWifiIPAddress()
+            result([
+                "availability": "notConnected",
+                "ssid": nil,
+                "bssid": nil,
+                "ipAddress": ipAddress
+            ])
+            return
+        }
         
         // Check location permissions
         if CLLocationManager.locationServicesEnabled() {
             let status = CLLocationManager.authorizationStatus()
             switch status {
             case .authorizedWhenInUse:
-                // Permissions granted, getting SSID
-                getCurrentWifiSSID()
+                // Permissions granted, getting WiFi information
+                getCurrentWifiInfo()
             case .authorizedAlways:
-                // Permissions granted, getting SSID
-                getCurrentWifiSSID()
+                // Permissions granted, getting WiFi information
+                getCurrentWifiInfo()
             case .denied, .restricted:
                 // Permissions denied
-                result(nil)
+                let ipAddress = getWifiIPAddress()
+                result([
+                    "availability": "permissionDenied",
+                    "ssid": nil,
+                    "bssid": nil,
+                    "ipAddress": ipAddress
+                ])
             case .notDetermined:
                 // Request permissions for app usage only
                 requestLocationPermission()
             @unknown default:
-                result(nil)
+                let ipAddress = getWifiIPAddress()
+                result([
+                    "availability": "unknown",
+                    "ssid": nil,
+                    "bssid": nil,
+                    "ipAddress": ipAddress
+                ])
             }
         } else {
-            result(nil)
+            let ipAddress = getWifiIPAddress()
+            result([
+                "availability": "locationDisabled",
+                "ssid": nil,
+                "bssid": nil,
+                "ipAddress": ipAddress
+            ])
         }
     }
     
-    private func getWifiBSSID(result: @escaping FlutterResult) {
-        self.result = result
-        
-        if CLLocationManager.locationServicesEnabled() {
-            let status = CLLocationManager.authorizationStatus()
-            
-            switch status {
-            case .authorizedWhenInUse, .authorizedAlways:
-                getCurrentWifiBSSID()
-            case .denied, .restricted:
-                result(nil)
-            case .notDetermined:
-                requestLocationPermission()
-            @unknown default:
-                result(nil)
-            }
-        } else {
-            result(nil)
-        }
-    }
-    
-    private func getWifiIPAddress(result: @escaping FlutterResult) {
+    private func getWifiIPAddress() -> String? {
         var address: String?
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         
-        guard getifaddrs(&ifaddr) == 0 else { return }
-        guard let firstAddr = ifaddr else { return }
+        guard getifaddrs(&ifaddr) == 0 else { return nil }
+        guard let firstAddr = ifaddr else { return nil }
         
         for ifptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
             let interface = ifptr.pointee
@@ -99,7 +104,7 @@ public class WifiInfoEnhancedPlugin: NSObject, FlutterPlugin, CLLocationManagerD
         }
         
         freeifaddrs(ifaddr)
-        result(address)
+        return address
     }
     
     private func requestLocationPermission() {
@@ -109,38 +114,51 @@ public class WifiInfoEnhancedPlugin: NSObject, FlutterPlugin, CLLocationManagerD
         locationManager?.requestWhenInUseAuthorization()
     }
     
-    private func getCurrentWifiSSID() {
+    private func getCurrentWifiInfo() {
         guard let interfaces = CNCopySupportedInterfaces() as? [String] else {
-            result?(nil)
+            let ipAddress = getWifiIPAddress()
+            result?([
+                "availability": "notConnected",
+                "ssid": nil,
+                "bssid": nil,
+                "ipAddress": ipAddress
+            ])
             return
         }
         
         for interface in interfaces {
             if let info = CNCopyCurrentNetworkInfo(interface as CFString) as? [String: Any] {
                 let ssid = info["SSID"] as? String
-                result?(ssid)
-                return
-            }
-        }
-        
-        result?(nil)
-    }
-    
-    private func getCurrentWifiBSSID() {
-        guard let interfaces = CNCopySupportedInterfaces() as? [String] else {
-            result?(nil)
-            return
-        }
-        
-        for interface in interfaces {
-            if let info = CNCopyCurrentNetworkInfo(interface as CFString) as? [String: Any] {
                 let bssid = info["BSSID"] as? String
-                result?(bssid)
+                let ipAddress = getWifiIPAddress()
+                
+                if let ssid = ssid, !ssid.isEmpty {
+                    result?([
+                        "availability": "available",
+                        "ssid": ssid,
+                        "bssid": bssid,
+                        "ipAddress": ipAddress
+                    ])
+                } else {
+                    result?([
+                        "availability": "restrictedByOs",
+                        "ssid": nil,
+                        "bssid": bssid,
+                        "ipAddress": ipAddress
+                    ])
+                }
                 return
             }
         }
         
-        result?(nil)
+        // No WiFi interface found
+        let ipAddress = getWifiIPAddress()
+        result?([
+            "availability": "notConnected",
+            "ssid": nil,
+            "bssid": nil,
+            "ipAddress": ipAddress
+        ])
     }
     
     // MARK: - CLLocationManagerDelegate
@@ -149,16 +167,28 @@ public class WifiInfoEnhancedPlugin: NSObject, FlutterPlugin, CLLocationManagerD
         switch status {
         case .authorizedWhenInUse:
             // Permissions granted, getting WiFi information
-            getCurrentWifiSSID()
+            getCurrentWifiInfo()
         case .authorizedAlways:
             // Permissions granted, getting WiFi information
-            getCurrentWifiSSID()
+            getCurrentWifiInfo()
         case .denied, .restricted:
-            result?(nil)
+            let ipAddress = getWifiIPAddress()
+            result?([
+                "availability": "permissionDenied",
+                "ssid": nil,
+                "bssid": nil,
+                "ipAddress": ipAddress
+            ])
         case .notDetermined:
             break
         @unknown default:
-            result?(nil)
+            let ipAddress = getWifiIPAddress()
+            result?([
+                "availability": "unknown",
+                "ssid": nil,
+                "bssid": nil,
+                "ipAddress": ipAddress
+            ])
         }
     }
 }

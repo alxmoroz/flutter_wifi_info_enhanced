@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-01-25
+
+### Changed
+- **BREAKING**: Replaced three separate methods with single `getWifiInfo()` method
+- **BREAKING**: Removed `getWifiName()`, `getWifiBSSID()`, and `getWifiIPAddress()` methods
+- **BREAKING**: New API returns structured `WifiInfo` object instead of individual values
+- **BREAKING**: Introduced `WifiAvailability` enum for type-safe status checking
+- Eliminated magic strings for different WiFi states
+- Improved type safety and API consistency
+
+### Added
+- `WifiAvailability` enum with states: available, restrictedByOs, locationDisabled, permissionDenied, notConnected, unknown
+- `WifiInfo` class with comprehensive WiFi connection information
+- `getWifiInfo()` method returning complete WiFi state information
+- Type-safe status checking with `isAvailable` and `isConnected` properties
+- Detailed availability reasons for better error handling
+
+### Migration Guide
+```dart
+// OLD API (v1.x)
+final ssid = await WifiInfoEnhanced.getWifiName();
+final bssid = await WifiInfoEnhanced.getWifiBSSID();
+final ip = await WifiInfoEnhanced.getWifiIPAddress();
+
+// NEW API (v2.0+)
+final wifiInfo = await WifiInfoEnhanced.getWifiInfo();
+if (wifiInfo.isAvailable) {
+  final ssid = wifiInfo.ssid;
+  final bssid = wifiInfo.bssid;
+}
+final ip = wifiInfo.ipAddress;
+```
+
+### Technical Details
+- Android: Unified method returns Map with availability, ssid, bssid, ipAddress
+- iOS: Unified method returns Dictionary with availability, ssid, bssid, ipAddress
+- Both platforms maintain existing permission handling logic
+- Enhanced error reporting with specific availability reasons
+
 ## [1.1.0] - 2025-10-25
 
 ### Changed

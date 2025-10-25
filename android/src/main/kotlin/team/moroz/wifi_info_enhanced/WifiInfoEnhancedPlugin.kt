@@ -28,7 +28,6 @@ class WifiInfoEnhancedPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, P
     private lateinit var context: Context
     private var activity: Activity? = null
     private var pendingResult: Result? = null
-    private var pendingMethodCall: MethodCall? = null
     
     companion object {
         private const val PERMISSION_REQUEST_CODE = 8472
@@ -42,14 +41,8 @@ class WifiInfoEnhancedPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, P
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         when (call.method) {
-            "getWifiName" -> {
-                getWifiName(result)
-            }
-            "getWifiBSSID" -> {
-                getWifiBSSID(result)
-            }
-            "getWifiIPAddress" -> {
-                getWifiIPAddress(result)
+            "getWifiInfo" -> {
+                getWifiInfo(result)
             }
             else -> {
                 result.notImplemented()
@@ -57,88 +50,115 @@ class WifiInfoEnhancedPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, P
         }
     }
 
-    private fun getWifiName(result: Result) {
+    private fun getWifiInfo(result: Result) {
         try {
+            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network = connectivityManager.activeNetwork
+            val capabilities = connectivityManager.getNetworkCapabilities(network)
+            
+            // Check if WiFi is connected
+            val isWifiConnected = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+            
+            if (!isWifiConnected) {
+                val ipAddress = getWifiIPAddress()
+                result.success(mapOf(
+                    "availability" to "notConnected",
+                    "ssid" to null,
+                    "bssid" to null,
+                    "ipAddress" to ipAddress
+                ))
+                return
+            }
+            
             // Check location permission for Android 10+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 if (!hasLocationPermission()) {
                     // Request permission if Activity is available
                     if (activity != null) {
-                        requestLocationPermission(result, "getWifiName")
+                        requestLocationPermission(result)
                         return
                     } else {
-                        result.success(null)
+                        val ipAddress = getWifiIPAddress()
+                        result.success(mapOf(
+                            "availability" to "permissionDenied",
+                            "ssid" to null,
+                            "bssid" to null,
+                            "ipAddress" to ipAddress
+                        ))
                         return
                     }
                 }
                 
                 if (!isLocationServiceEnabled()) {
-                    result.success(null)
+                    val ipAddress = getWifiIPAddress()
+                    result.success(mapOf(
+                        "availability" to "locationDisabled",
+                        "ssid" to null,
+                        "bssid" to null,
+                        "ipAddress" to ipAddress
+                    ))
                     return
                 }
             }
             
-            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val wifiInfo = wifiManager.connectionInfo
+            val ipAddress = getWifiIPAddress()
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 // On Android 10+ special permission is required
-                val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-                val network = connectivityManager.activeNetwork
-                val capabilities = connectivityManager.getNetworkCapabilities(network)
+                val ssid = wifiInfo.ssid
+                val bssid = wifiInfo.bssid
                 
-                if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
-                    // WiFi is connected, but SSID may be unavailable
-                    val ssid = wifiInfo.ssid
-                    if (ssid == "<unknown ssid>" || ssid == null || ssid.isEmpty()) {
-                        result.success(null)
-                    } else {
-                        result.success(ssid.replace("\"", ""))
-                    }
+                if (ssid == "<unknown ssid>" || ssid == null || ssid.isEmpty()) {
+                    result.success(mapOf(
+                        "availability" to "restrictedByOs",
+                        "ssid" to null,
+                        "bssid" to bssid,
+                        "ipAddress" to ipAddress
+                    ))
                 } else {
-                    result.success(null)
+                    result.success(mapOf(
+                        "availability" to "available",
+                        "ssid" to ssid.replace("\"", ""),
+                        "bssid" to bssid,
+                        "ipAddress" to ipAddress
+                    ))
                 }
             } else {
                 // On older Android versions
                 val ssid = wifiInfo.ssid
-                result.success(if (ssid == "<unknown ssid>") null else ssid?.replace("\"", ""))
-            }
-        } catch (e: Exception) {
-            result.success(null)
-        }
-    }
-
-    private fun getWifiBSSID(result: Result) {
-        try {
-            // Check location permission for Android 10+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                if (!hasLocationPermission()) {
-                    // Request permission if Activity is available
-                    if (activity != null) {
-                        requestLocationPermission(result, "getWifiBSSID")
-                        return
-                    } else {
-                        result.success(null)
-                        return
-                    }
-                }
+                val bssid = wifiInfo.bssid
                 
-                if (!isLocationServiceEnabled()) {
-                    result.success(null)
-                    return
+                if (ssid == "<unknown ssid>") {
+                    result.success(mapOf(
+                        "availability" to "restrictedByOs",
+                        "ssid" to null,
+                        "bssid" to bssid,
+                        "ipAddress" to ipAddress
+                    ))
+                } else {
+                    result.success(mapOf(
+                        "availability" to "available",
+                        "ssid" to ssid?.replace("\"", ""),
+                        "bssid" to bssid,
+                        "ipAddress" to ipAddress
+                    ))
                 }
             }
-            
-            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val wifiInfo = wifiManager.connectionInfo
-            result.success(wifiInfo.bssid)
         } catch (e: Exception) {
-            result.success(null)
+            val ipAddress = getWifiIPAddress()
+            result.success(mapOf(
+                "availability" to "unknown",
+                "ssid" to null,
+                "bssid" to null,
+                "ipAddress" to ipAddress
+            ))
         }
     }
 
-    private fun getWifiIPAddress(result: Result) {
-        try {
+    private fun getWifiIPAddress(): String? {
+        return try {
             val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val networkInterface = interfaces.nextElement()
@@ -146,14 +166,13 @@ class WifiInfoEnhancedPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, P
                 while (addresses.hasMoreElements()) {
                     val address = addresses.nextElement()
                     if (!address.isLoopbackAddress && address is InetAddress && address.hostAddress?.indexOf(':') == -1) {
-                        result.success(address.hostAddress)
-                        return
+                        return address.hostAddress
                     }
                 }
             }
-            result.success(null)
+            null
         } catch (e: Exception) {
-            result.success(null)
+            null
         }
     }
 
@@ -181,9 +200,8 @@ class WifiInfoEnhancedPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, P
     }
     
     // Permission request handling
-    private fun requestLocationPermission(result: Result, methodName: String) {
+    private fun requestLocationPermission(result: Result) {
         pendingResult = result
-        pendingMethodCall = MethodCall(methodName, null)
         
         activity?.let {
             ActivityCompat.requestPermissions(
@@ -191,7 +209,15 @@ class WifiInfoEnhancedPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, P
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
                 PERMISSION_REQUEST_CODE
             )
-        } ?: result.success(null)
+        } ?: run {
+            val ipAddress = getWifiIPAddress()
+            result.success(mapOf(
+                "availability" to "permissionDenied",
+                "ssid" to null,
+                "bssid" to null,
+                "ipAddress" to ipAddress
+            ))
+        }
     }
     
     override fun onRequestPermissionsResult(
@@ -205,21 +231,21 @@ class WifiInfoEnhancedPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, P
             
             if (granted) {
                 // Permission granted, retry the original method call
-                pendingMethodCall?.let { call ->
-                    pendingResult?.let { result ->
-                        when (call.method) {
-                            "getWifiName" -> getWifiName(result)
-                            "getWifiBSSID" -> getWifiBSSID(result)
-                        }
-                    }
+                pendingResult?.let { result ->
+                    getWifiInfo(result)
                 }
             } else {
                 // Permission denied
-                pendingResult?.success(null)
+                val ipAddress = getWifiIPAddress()
+                pendingResult?.success(mapOf(
+                    "availability" to "permissionDenied",
+                    "ssid" to null,
+                    "bssid" to null,
+                    "ipAddress" to ipAddress
+                ))
             }
             
             pendingResult = null
-            pendingMethodCall = null
             return true
         }
         return false
