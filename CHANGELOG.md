@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2025-10-25
+
+### Fixed
+- **CRITICAL**: Fixed Android Gradle Plugin 8.x compatibility by adding required `namespace` in build.gradle
+- Updated Android Gradle Plugin to 8.6.1
+- Updated Kotlin to 2.2.0
+- Updated compileSdk to 34
+- Updated Java compatibility to version 17
+- Simplified build.gradle structure for better maintainability
+
+### Technical Details
+- Added `namespace = 'team.moroz.wifi_info_enhanced'` to android/build.gradle
+- Removed deprecated buildscript and rootProject.allprojects blocks
+- Updated kotlin-stdlib-jdk8 to version 2.2.0
+- This fixes the "Namespace not specified" error when using AGP 8.x
+
 ## [2.0.0] - 2025-10-25
 
 ### Changed
