@@ -1,6 +1,6 @@
 name: wifi_info_enhanced
 description: Flutter plugin for getting WiFi information with improved iOS and Android support
-version: 2.1.0
+version: 2.1.1
 homepage: https://github.com/alxmoroz/flutter_wifi_info_enhanced
 
 environment:
