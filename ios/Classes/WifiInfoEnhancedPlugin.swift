@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 import SystemConfiguration.CaptiveNetwork
 import CoreLocation
+import NetworkExtension
 
 public class WifiInfoEnhancedPlugin: NSObject, FlutterPlugin, CLLocationManagerDelegate {
     private var locationManager: CLLocationManager?
@@ -115,50 +116,60 @@ public class WifiInfoEnhancedPlugin: NSObject, FlutterPlugin, CLLocationManagerD
     }
     
     private func getCurrentWifiInfo() {
-        guard let interfaces = CNCopySupportedInterfaces() as? [String] else {
-            let ipAddress = getWifiIPAddress()
-            result?([
-                "availability": "notConnected",
-                "ssid": nil,
-                "bssid": nil,
-                "ipAddress": ipAddress
-            ])
-            return
-        }
-        
-        for interface in interfaces {
-            if let info = CNCopyCurrentNetworkInfo(interface as CFString) as? [String: Any] {
-                let ssid = info["SSID"] as? String
-                let bssid = info["BSSID"] as? String
-                let ipAddress = getWifiIPAddress()
+        // Use NEHotspotNetwork.fetchCurrent() for iOS 13+ (replaces deprecated CNCopyCurrentNetworkInfo)
+        Task {
+            do {
+                let networks = try await NEHotspotNetwork.fetchCurrent()
                 
-                if let ssid = ssid, !ssid.isEmpty {
-                    result?([
-                        "availability": "available",
-                        "ssid": ssid,
-                        "bssid": bssid,
-                        "ipAddress": ipAddress
-                    ])
+                if let network = networks.first {
+                    let ssid = network.ssid
+                    let bssid = network.bssid
+                    let ipAddress = getWifiIPAddress()
+                    
+                    if !ssid.isEmpty {
+                        await MainActor.run {
+                            result?([
+                                "availability": "available",
+                                "ssid": ssid,
+                                "bssid": bssid,
+                                "ipAddress": ipAddress
+                            ])
+                        }
+                    } else {
+                        await MainActor.run {
+                            result?([
+                                "availability": "restrictedByOs",
+                                "ssid": nil,
+                                "bssid": bssid,
+                                "ipAddress": ipAddress
+                            ])
+                        }
+                    }
                 } else {
+                    // No WiFi network found
+                    let ipAddress = getWifiIPAddress()
+                    await MainActor.run {
+                        result?([
+                            "availability": "notConnected",
+                            "ssid": nil,
+                            "bssid": nil,
+                            "ipAddress": ipAddress
+                        ])
+                    }
+                }
+            } catch {
+                // Error fetching network info
+                let ipAddress = getWifiIPAddress()
+                await MainActor.run {
                     result?([
-                        "availability": "restrictedByOs",
+                        "availability": "unknown",
                         "ssid": nil,
-                        "bssid": bssid,
+                        "bssid": nil,
                         "ipAddress": ipAddress
                     ])
                 }
-                return
             }
         }
-        
-        // No WiFi interface found
-        let ipAddress = getWifiIPAddress()
-        result?([
-            "availability": "notConnected",
-            "ssid": nil,
-            "bssid": nil,
-            "ipAddress": ipAddress
-        ])
     }
     
     // MARK: - CLLocationManagerDelegate
