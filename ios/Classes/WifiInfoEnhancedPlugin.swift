@@ -119,9 +119,9 @@ public class WifiInfoEnhancedPlugin: NSObject, FlutterPlugin, CLLocationManagerD
         // Use NEHotspotNetwork.fetchCurrent() for iOS 13+ (replaces deprecated CNCopyCurrentNetworkInfo)
         Task {
             do {
-                let networks = try await NEHotspotNetwork.fetchCurrent()
+                let network = try await NEHotspotNetwork.fetchCurrent()
                 
-                if let network = networks.first {
+                if let network = network {
                     let ssid = network.ssid
                     let bssid = network.bssid
                     let ipAddress = getWifiIPAddress()
